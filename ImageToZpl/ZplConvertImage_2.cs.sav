@@ -1,0 +1,405 @@
+﻿using System;
+using System.Collections;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.IO;
+using System.Text;
+using System.Text;rotate
+using System.Text.RegularExpressions;
+
+#pragma warning disable CA1416    // Prerelease of System.Drawing.Common.dll is only functional on Windows
+public partial class ImageToZpl_old {
+   private partial class 
+   : IDisposable {
+      protected Bitmap m_bitmap = new Bitmap(1, 1);
+      protected bool m_disposed = false;
+
+      public ZplImage(string filename) {
+         using (Image image = Image.FromFile(filename)) // opens file in any format
+         {
+            m_bitmap = new Bitmap(image);
+         }
+      }
+
+      public int Height {
+         get {
+            if (m_bitmap == null)
+               return 0;
+            return m_bitmap.Height;
+         }
+      }
+
+      public int Width {
+         get {
+            if (m_bitmap == null)
+               return 0;
+            return m_bitmap.Width;
+         }
+      }
+
+      public void Rotate(int degrees) {
+         switch (degrees) {
+            case 0: {
+                  break;
+               }
+            // Do nothing
+            case -90:
+            case 270: {
+                  m_bitmap.RotateFlip(RotateFlipType.Rotate90FlipNone);
+                  break;
+               }
+
+            case -180:
+            case 180: {
+                  m_bitmap.RotateFlip(RotateFlipType.Rotate180FlipNone);
+                  break;
+               }
+
+            case -270:
+            case 90: {
+                  m_bitmap.RotateFlip(RotateFlipType.Rotate270FlipNone);
+                  break;
+               }
+
+            default: {
+                  break;
+               }
+               // Do nothing
+         }
+      }
+
+      public void ConvertToBlackAndWhite(bool grayColorMatrix) {
+         Rectangle rect;
+         System.Drawing.Imaging.ImageAttributes attributes;
+         var grayMatrix = new[] { new float[] { 0.299F, 0.299F, 0.299F, 0, 0 }, new float[] { 0.587F, 0.587F, 0.587F, 0, 0 }, new float[] { 0.114F, 0.114F, 0.114F, 0, 0 }, new float[] { 0, 0, 0, 1, 0 }, new float[] { 0, 0, 0, 0, 1 } };
+         var bwMatrix = new[] { new float[] { 1.5F, 1.5F, 1.5F, 0, 0 }, new float[] { 1.5F, 1.5F, 1.5F, 0, 0 }, new float[] { 1.5F, 1.5F, 1.5F, 0, 0 }, new float[] { 0, 0, 0, 1, 0 }, new float[] { -1, -1, -1, 0, 1 } };
+         using (var image = new Bitmap(m_bitmap)) {
+            rect = new Rectangle(0, 0, image.Width, image.Height);
+            attributes = new System.Drawing.Imaging.ImageAttributes();
+            if (grayColorMatrix) {
+               attributes.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix(grayMatrix));
+            } else {
+               attributes.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix(bwMatrix), System.Drawing.Imaging.ColorMatrixFlag.Default, System.Drawing.Imaging.ColorAdjustType.Bitmap);
+            }
+
+            attributes.SetThreshold(0.8F);
+            using (Graphics graphic = Graphics.FromImage(image)) {
+               graphic.DrawImage(m_bitmap, rect, 0, 0, m_bitmap.Width, m_bitmap.Height, GraphicsUnit.Pixel, attributes);
+            }
+
+            m_bitmap = new Bitmap(image);
+         }
+      }
+
+      public MemoryStream Zpl(int CompressionLevel, bool invertImage) {
+         BitArray bitArray;
+         string lineOutPriorUncompressed;
+         string lineOutUncompressed;
+         string lineOutCompressed;
+         byte[] byteArray;
+         MemoryStream memStream;
+         UTF8Encoding enc;
+         bitArray = new BitArray(m_bitmap.Width);
+         lineOutPriorUncompressed = string.Empty;
+         memStream = new MemoryStream();
+         enc = new UTF8Encoding();
+         for (int y = 0, loopTo = m_bitmap.Height - 1; y <= loopTo; y++) {
+            /* TODO ERROR: Skipped IfDirectiveTrivia *//* TODO ERROR: Skipped DisabledTextTrivia *//* TODO ERROR: Skipped EndIfDirectiveTrivia */
+            for (int x = 0, loopTo1 = m_bitmap.Width - 1; x <= loopTo1; x++) {
+               Color color;
+               color = m_bitmap.GetPixel(x, y);
+//             bitArray[x] = !Conversions.ToBoolean(color.R | color.G | color.B);
+               bitArray[x] = (color.R | color.G | color.B) > 0;
+               if (invertImage) {
+                  bitArray[x] = !bitArray[x];
+               }
+               /* TODO ERROR: Skipped IfDirectiveTrivia *//* TODO ERROR: Skipped DisabledTextTrivia *//* TODO ERROR: Skipped EndIfDirectiveTrivia */                    // If x Mod 80 = 0 Then
+                                                                                                                                                                        // line.Append(vbCrLf)
+                                                                                                                                                                        // End If
+
+            }
+            /* TODO ERROR: Skipped IfDirectiveTrivia *//* TODO ERROR: Skipped DisabledTextTrivia *//* TODO ERROR: Skipped EndIfDirectiveTrivia */
+            byteArray = ToByteArray(bitArray);
+            lineOutUncompressed = WriteByteArray(byteArray);
+            lineOutCompressed = string.Empty;
+            switch (CompressionLevel) {
+               case 0: {
+                     lineOutCompressed = lineOutUncompressed + "\n";
+                     break;
+                  }
+
+               case 1: {
+                     lineOutCompressed = Compress1(lineOutUncompressed, lineOutPriorUncompressed);
+                     break;
+                  }
+
+               case 2: {
+                     lineOutCompressed = lineOutUncompressed;
+                     break;
+                  }
+
+               case 3: {
+                     lineOutCompressed = Compress1(lineOutUncompressed, lineOutPriorUncompressed);
+                     break;
+                  }
+
+               default: {
+                     break;
+                  }
+                  // Do nothing
+            }
+            /* TODO ERROR: Skipped IfDirectiveTrivia *//* TODO ERROR: Skipped DisabledTextTrivia *//* TODO ERROR: Skipped EndIfDirectiveTrivia */
+            memStream.Write(enc.GetBytes(lineOutCompressed), 0, lineOutCompressed.Length);
+            lineOutPriorUncompressed = lineOutUncompressed;
+         }
+
+         switch (CompressionLevel) {
+            case 2:
+            case 3: {
+                  memStream = Compress2(memStream);
+                  break;
+               }
+
+            default: {
+                  break;
+               }
+               // Do nothing
+         }
+
+         /* TODO ERROR: Skipped IfDirectiveTrivia *//* TODO ERROR: Skipped DisabledTextTrivia *//* TODO ERROR: Skipped EndIfDirectiveTrivia */
+         memStream.Seek(0, SeekOrigin.Begin);
+         return memStream;
+      }
+
+      /* TODO ERROR: Skipped RegionDirectiveTrivia */
+      private byte[] ToByteArray(BitArray bitArray) {
+         byte[] byteArray;
+         int byteCount;
+         int bitIndex;
+         int byteIndex;
+         byteCount = bitArray.Count / 4;    // Note: The special \ Operator returns the integer quotient, which drops the remainder.
+         if (bitArray.Count % 4 != 0) {
+            byteCount += 1;
+         }
+
+         byteArray = new byte[byteCount];
+         bitIndex = 0;
+         byteIndex = 0;
+         for (int i = 0, loopTo = bitArray.Count - 1; i <= loopTo; i++) {
+            if (bitArray[i]) {
+
+               byteArray[byteIndex] = Convert.ToByte(byteArray[byteIndex] | Convert.ToByte(1 << 3 - bitIndex));
+            }
+
+            bitIndex += 1;
+            if (bitIndex == 4) {
+               bitIndex = 0;
+               byteIndex += 1;
+            }
+         }
+
+         return byteArray;
+      }
+
+      private string WriteBitArray(BitArray bitArray) {
+         var sb = new StringBuilder(bitArray.Length);
+         for (int i = 0, loopTo = bitArray.Count - 1; i <= loopTo; i++)
+            sb.AppendFormat("{0:X}", Convert.ToInt32(bitArray[i]));
+         return sb.ToString();
+      }
+
+      private string WriteByteArray(byte[] byteArray) {
+         var sb = new StringBuilder(byteArray.Length);
+         for (int i = 0, loopTo = byteArray.Length - 1; i <= loopTo; i++)
+            sb.AppendFormat("{0:X}", byteArray[i]);
+         return sb.ToString();
+      }
+
+      private string Compress1(string line, string uncompressedPriorLine) {
+         if (string.Compare(line, uncompressedPriorLine, true) == 0) {
+            return ":";
+         }
+
+         return Compress1(line);
+      }
+
+      private string Compress1(string line) {
+         Match match;
+         string pattern;
+         string replacementOdd;
+         string replacementEven;
+         string compressed;
+         if (line.EndsWith("0")) {
+            pattern = "0+$";
+            replacementEven = ",";
+            replacementOdd = "0,";
+         } else if (line.EndsWith("F")) {
+            pattern = "F+$";
+            replacementEven = "!";
+            replacementOdd = "F!";
+         } else {
+            return line;
+         }
+
+         match = Regex.Match(line, pattern, RegexOptions.Compiled);
+         if (match.Success) {
+            if (match.Length % 2 == 0) {
+               compressed = Regex.Replace(line, pattern, replacementEven, RegexOptions.Compiled);
+            } else {
+               compressed = Regex.Replace(line, pattern, replacementOdd, RegexOptions.Compiled);
+            }
+         } else {
+            compressed = line;
+         }
+
+         return compressed;
+      }
+
+      private MemoryStream? Compress2(MemoryStream? memStream) {
+         int count;
+         char priorChar;
+         char currentChar;
+         byte[] buffer;
+         var enc = new UTF8Encoding();
+         MemoryStream memStreamOut;
+         if (memStream == null) {
+            return null;
+         }
+
+         memStream.Seek(0, SeekOrigin.Begin);
+         count = 1;
+         priorChar = (char)memStream.ReadByte();
+         memStreamOut = new MemoryStream();
+         while (memStream.Position < memStream.Length) {
+            currentChar = (char)memStream.ReadByte();
+            if (char.IsControl(currentChar))
+               continue;
+            if (currentChar == priorChar) {
+               count += 1;
+               if (count > 419) {
+                  buffer = enc.GetBytes(Compress2Count(priorChar, 419));
+                  memStreamOut.Write(buffer, 0, buffer.Length);
+                  count = 1;
+               }
+            } else {
+               buffer = enc.GetBytes(Compress2Count(priorChar, count));
+               memStreamOut.Write(buffer, 0, buffer.Length);
+               count = 1;
+               priorChar = currentChar;
+            }
+         }
+
+         buffer = enc.GetBytes(Compress2Count(priorChar, count));
+         memStreamOut.Write(buffer, 0, buffer.Length);
+         memStreamOut.Seek(0, SeekOrigin.Begin);
+         return memStreamOut;
+      }
+
+      private string Compress2(string line) {
+         StringBuilder lineOut;
+         int count;
+         char priorChar;
+         if ((line ?? "") == (string.Empty ?? "") || line.Length <= 2) {
+            return line;
+         }
+
+         lineOut = new StringBuilder(line.Length);
+         count = 1;
+         priorChar = line[0];
+         for (int i = 1, loopTo = line.Length - 1; i <= loopTo; i++) {
+            if (char.IsControl(line[i]))
+               continue;
+            if (line[i] == priorChar) {
+               count += 1;
+               if (count > 419) {
+                  lineOut.Append(Compress2Count(priorChar, 419));
+                  count = 1;
+               }
+            } else {
+               lineOut.Append(Compress2Count(priorChar, count));
+               count = 1;
+               priorChar = line[i];
+            }
+         }
+
+         lineOut.Append(Compress2Count(priorChar, count));
+         return lineOut.ToString();
+      }
+
+      private string Compress2Count(char value, int count) {
+         var sb = new StringBuilder();
+         var array1 = new char[] { '\0', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z' };
+         var array2 = new char[] { '\0', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z' };
+         if (count == 0)
+            return string.Empty;
+         if (count == 1)
+            return char.ToString(value);
+         if (count > 419)
+            throw new Exception("CompressCount > 419");
+
+         // TODO: While loop for > 419 chars
+
+         if (char.IsControl(value)) {
+            return string.Empty;
+         }
+
+         if (value == ',' || value == '!' || value == ':') {
+            sb.Insert(sb.Length, char.ToString(value), count);
+            return sb.ToString();
+         }
+
+         if (count >= 20) {
+            sb.Append(array2[count / 20]);
+            count -= count / 20 * 20;
+         }
+
+         switch (count) {
+            case 0: {
+                  sb.Append(value);
+                  break;
+               }
+
+            case object _ when 1 <= count && count <= 19: {
+                  sb.Append(array1[count]);
+                  sb.Append(value);
+                  break;
+               }
+         }
+
+         return sb.ToString();
+      }
+
+      private void WriteToStream() {
+         var memStream = new MemoryStream();
+         var uniEncoding = new UnicodeEncoding();
+         string strText = "This is some sample text sentence that i am adding in this variable. I can also get this variable from some other source like a file or a network socket or whatever";
+         var enc = new UTF8Encoding();
+         var arrBytData = enc.GetBytes(strText);
+         memStream.Write(arrBytData, 0, arrBytData.Length);
+
+         // The stream contains the data in mamory, in binary form.
+         // You can utilize the stream for further operations here
+
+         WriteMemoryStreamToConsole(memStream, 20, false);
+         memStream.Close();
+         memStream = null;
+      }
+
+      private void WriteMemoryStreamToConsole(MemoryStream memStream, int lineLength, bool embeddedControl) {
+         int count = 0;
+         int bytesRead;
+         byte[] buffer;
+         buffer = new byte[lineLength - 1 + 1];
+         memStream.Seek(0, SeekOrigin.Begin);
+         while (count < memStream.Length) {
+            bytesRead = memStream.Read(buffer, 0, lineLength);
+            if (embeddedControl) {
+               Console.Write(Encoding.ASCII.GetString(buffer, 0, bytesRead));
+            } else {
+               Console.WriteLine(Encoding.ASCII.GetString(buffer, 0, bytesRead));
+            }
+
+            count += bytesRead;
+         }
+      }
+

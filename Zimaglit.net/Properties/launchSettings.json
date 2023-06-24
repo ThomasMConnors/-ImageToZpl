@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Zimaglit.net": {
+      "commandName": "Project",
+      "commandLineArgs": "-i C:\\TOMC\\Work\\ImageToZpl_3\\ZPL_Output_Samples\\ST-2.bmp"
+    }
+  }
+}
