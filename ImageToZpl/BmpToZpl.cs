@@ -171,13 +171,13 @@ namespace ImageToZpl {
                   }
 
                case 2: {      // Use an encoding scheme representing n number of consecutive characters
-                     lineOutCompressed = Compress2(lineOutUncompressed);
+                     lineOutCompressed = Compress2_2(lineOutUncompressed);
                      break;
                   }
 
                case 3: {      // Use CompressionLevel options 1 and 2
                      lineOutCompressed = Compress1(lineOutUncompressed, lineOutPriorUncompressed);
-                     lineOutCompressed = Compress2(lineOutCompressed);
+                     lineOutCompressed = Compress2_2(lineOutCompressed);
                      break;
                   }
 
@@ -247,7 +247,7 @@ namespace ImageToZpl {
          return sb.ToString();
       }
 
-      private string Compress1(string line, string uncompressedPriorLine) {
+      public string Compress1(string line, string uncompressedPriorLine) {
          if (string.Compare(line, uncompressedPriorLine, true) == 0) {
             return ":";
          }
@@ -326,7 +326,7 @@ namespace ImageToZpl {
          return memStreamOut;
       }
 
-      private string Compress2_2(string line) {
+      public string Compress2_2(string line) {
 
          int count;
          char priorChar;
@@ -424,7 +424,7 @@ namespace ImageToZpl {
 
          // TODO: a 'zzzG' is a valid pattern for large sequences,working on a fix
 
-         if (count == 0)
+         if (count <= 0)
             return string.Empty;
          if (count == 1)
             return char.ToString(value);
@@ -468,47 +468,6 @@ namespace ImageToZpl {
 
 
 #if DEBUG
-
-
-      public void _test_Compress2Count_2() {
-         
-         string s;
-
-         s = Compress2Count_2('X', 0);          // ""
-         s = Compress2Count_2('X', 1);          // "X"
-         s = Compress2Count_2('X', 19);         // "YX"
-         s = Compress2Count_2('X', 20);         // "gX"
-         s = Compress2Count_2('X', 21);         // "hX"
-         s = Compress2Count_2('X', 399);        // "yX"
-         s = Compress2Count_2('X', 400);        // "zX"
-         s = Compress2Count_2('X', 401);        // "zzX"
-         s = Compress2Count_2('X', 1000);       // "zzzX"
-         s = Compress2Count_2('X', 1001);       // "zzzYX"
-
-      }
-
-      protected void _test_Compress2_2() {
-
-         string outString;
-
-         string s1 = "0101010101010000000000000000000000000000";
-         string s2 = "010101010101FFFFFFFFFFFFFFFFFFFFFFFFFFFF";
-         string s3 = "01010101010100000000000000000000000000FF";
-         string s4 = "010101010101FFFFFFFFFFFFFFFFFFFFFFFFFF00";
-         string s5 = "010101010101FFFFFFFFFFFFFFFFFFFFFFFFF00F";
-
-
-         //outString = Compress2("0");    // "0"
-         //outString = Compress2("00");   // "00"
-         //outString = Compress2("000");  // "I0"
-
-         outString = Compress2(s1);       // "010101010101gN0"
-         outString = Compress2(s2);       // "010101010101gNF"
-         outString = Compress2(s3);       // "010101010101gL0HF"
-         outString = Compress2(s4);       // "010101010101gLFH0"
-         outString = Compress2(s5);       // "010101010101gKFH0F"
-
-      }
 
       protected long WriteMemoryStreamToConsole(MemoryStream memStream, int lineLength, bool embeddedControl) {
 
@@ -600,6 +559,12 @@ namespace ImageToZpl {
          WriteBitmapToConsole(bitmap);
       }
 
+
+      protected void test_Compress0() {
+         //outString = Compress2()
+
+      }
+
       protected void test_Compress1() {
 
          string outString;
@@ -634,7 +599,7 @@ namespace ImageToZpl {
          outString = Compress2Count('B', 1000);    // "zYBzYBnHB"
       }
 
-      protected void test_Compress2() {
+      protected void test_Compress3() {
          //outString = Compress2()
 
       }
